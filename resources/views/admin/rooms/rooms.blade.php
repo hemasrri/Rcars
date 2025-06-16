@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Room Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Nunito', sans-serif;
+    }
+  </style>
+   <script>
+    function toggleNestedLinks() {
+      const nestedLinks = document.getElementById('nested-links');
+      nestedLinks.classList.toggle('hidden');
+    }
+  </script>
+</head>
+<body class="bg-gray-50">
+  <div class="flex min-h-screen">
+    {{-- Sidebar --}}
+    @include('layouts.sidebar')
+
+    <div class="flex-1 flex flex-col">
+      {{-- Header --}}
+      @include('layouts.header')
+
+      {{-- Content --}}
+      <main class="p-6 space-y-6 overflow-auto">
+        <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
+          <h2 class="text-2xl font-semibold mb-4">Manage Rooms</h2>
+
+          @if(session('success'))
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              {{ session('success') }}
+            </div>
+          @endif
+
+          {{-- Filters & Search --}}
+          <div class="flex flex-wrap justify-between gap-4 mb-4">
+            <form method="GET" action="{{ route('rooms.index') }}" class="flex flex-wrap gap-2 items-center">
+              <input type="text" name="search" placeholder="Search Room Number" value="{{ request()->get('search') }}"
+                     class="border border-gray-300 rounded-md p-2" />
+
+              {{-- Gender Filter --}}
+              <select name="gender" class="border border-gray-300 rounded-md p-2">
+                <option value="">All Genders</option>
+                <option value="male" {{ request('gender') == 'male' ? 'selected' : '' }}>Male</option>
+                <option value="female" {{ request('gender') == 'female' ? 'selected' : '' }}>Female</option>
+              </select>
+
+              {{-- Floor Filter --}}
+              <select name="floor" class="border border-gray-300 rounded-md p-2">
+                <option value="">All Floors</option>
+                @foreach($rooms->pluck('floor_number')->unique() as $floor)
+                  <option value="{{ $floor }}" {{ request('floor') == $floor ? 'selected' : '' }}>Floor {{ $floor }}</option>
+                @endforeach
+              </select>
+
+              {{-- Room Status Filter --}}
+              <select name="status" class="border border-gray-300 rounded-md p-2">
+                <option value="">All Statuses</option>
+                <option value="available" {{ request('status') == 'available' ? 'selected' : '' }}>Available</option>
+                <option value="allocated" {{ request('status') == 'allocated' ? 'selected' : '' }}>Allocated</option>
+                <option value="maintenance" {{ request('status') == 'maintenance' ? 'selected' : '' }}>Maintenance</option>
+              </select>
+
+              <button type="submit" class="bg-blue-600 text-white rounded-md px-4 py-2">Filter</button>
+            </form>
+
+            <a href="{{ route('rooms.create') }}" class="bg-green-600 text-white rounded-md px-4 py-2">Add Room</a>
+          </div>
+
+          {{-- Table --}}
+          <table class="min-w-full bg-white border border-gray-300 rounded-lg">
+            <thead>
+              <tr class="bg-gray-200">
+                <th class="py-2 px-4 border-b">Room Number</th>
+                <th class="py-2 px-4 border-b">Floor</th>
+                <th class="py-2 px-4 border-b">Capacity</th>
+                <th class="py-2 px-4 border-b">Status</th>
+                <th class="py-2 px-4 border-b">Gender</th>
+                <th class="py-2 px-4 border-b">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse($rooms as $room)
+                <tr class="hover:bg-gray-100">
+                  <td class="py-2 px-4 border-b">{{ $room->room_number }}</td>
+                  <td class="py-2 px-4 border-b">{{ $room->floor_number }}</td>
+                  <td class="py-2 px-4 border-b">{{ $room->capacity }}</td>
+                  <td class="py-2 px-4 border-b">
+                    @php
+                      $statusClass = match(strtolower($room->room_status)) {
+                        'available' => 'text-green-600',
+                        'allocated' => 'text-blue-600',
+                        'maintenance' => 'text-yellow-600',
+                        default => 'text-gray-600',
+                      };
+                    @endphp
+                    <span class="{{ $statusClass }} font-semibold">{{ ucfirst($room->room_status) }}</span>
+                  </td>
+                  <td class="py-2 px-4 border-b">{{ $room->block?->gender ?? 'No Block Assigned' }}</td>
+                  <td class="py-2 px-4 border-b flex space-x-2">
+                    <a href="{{ route('rooms.edit', $room->room_id) }}" class="bg-orange-600 text-white rounded-md px-3 py-1 hover:bg-orange-700">Edit</a>
+                    <form action="{{ route('rooms.destroy', $room->room_id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="bg-red-600 text-white rounded-md px-3 py-1 hover:bg-red-700">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-gray-500">No rooms found.</td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+
+          {{-- Pagination --}}
+          <div class="mt-4">
+            {{ $rooms->appends(request()->query())->links() }}
+          </div>
+        </div>
+      </main>
+
+      {{-- Hidden Logout --}}
+      <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+        @csrf
+      </form>
+
+      {{-- Footer --}}
+      <footer class="mt-16 text-center text-sm text-gray-500 p-6">
+        <p>&copy; {{ date('Y') }} RCARS - Residential College Accommodation Reservation System. All rights reserved.</p>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
